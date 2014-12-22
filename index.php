@@ -14,10 +14,75 @@ class declensionTable {
 	}
 	
 	public function parse() {
-		//$this->json = $this->parseHTML($type);
-		$this->json = 'not parsed yet';
+		echo htmlspecialchars($this->html);
+		
+		//$this->json = htmlspecialchars($this->html);
+		
+		$htmlParser = str_get_html($this->html);
+		$tableJson = array();
+		
+		//$es = $htmlParser->find("a");
+		$curRow = 0; // current Row
+		$rowspanFlag = array();
+		$colspanFlag = array(); // used when rowspan and colspan at the same time
+		
+		foreach($htmlParser->find('tr') as $trElement) {
+			$curCol = 0; // current column
+			$tableJson[$curRow] = array();
+			foreach($trElement->find('th') as $thElement) {	
+				if (isset($colspanFlag[$curCol]) && $colspanFlag[$curCol]) { // we need to copy this cell from previous row
+					echo('---- NOTED COLSPAN AND ROWSPAN' . $curCol . $curRow);
+					for ($k = 0; $k < $colspanFlag[$curCol]; $k++) {
+						$tableJson[$curRow][$curCol + $k] = $tableJson[$curRow - 1][$curCol]; // copy cell content from the previous row
+					}
+					$curCol += $colspanFlag[$curCol];
+				}
+				
+				if (isset($rowspanFlag[$curCol]) && $rowspanFlag[$curCol]) { // we need to copy this cell from previous row
+					echo('isset($rowspanFlag[$j]' . $curCol);
+					$rowspanFlag[$curCol]--; // decrease count of how many rows nees to be copied from the original row
+					$tableJson[$curRow][$curCol] = $tableJson[$curRow - 1][$curCol]; // copy cell content from the previous row
+					$curCol++; // move to the next call in table
+					
+				}
+				elseif (isset($thElement->rowspan)) {
+					if (isset($thElement->colspan)) { // we will need to copy N next cells from this
+						echo('FOUND COLSPAN AND ROWSPAN');
+						$colspanFlag[$curCol] = $thElement->colspan;
+					}
+					else {
+						$rowspanFlag[$curCol] = $thElement->rowspan - 1; // set copy mode for next N rows
+					}
+					
+					$tableJson[$curRow][$curCol] = $thElement->innertext;
+					echo('$thElement->rowspan:' . $thElement->rowspan . ' = [' . $curCol.' ]');
+				}
+				
+				if (isset($thElement->colspan)) { // we will need to copy N next cells from this
+					echo('$thElement->colspan:' . $thElement->colspan . ' = [' . $curCol.' ]');
+					for ($k = 0; $k < $thElement->colspan; $k++) {
+						$tableJson[$curRow][$curCol + $k] = $thElement->innertext;
+					}
+					
+					$curCol += $thElement->colspan;	
+				}
+				else {
+					$tableJson[$curRow][$curCol] = $thElement->innertext;
+					$curCol++;	
+				}
+			}
+			/*
+			foreach($trElement->find('td') as $tdElement) {	
+				$tableJson[$i][$j] = $tdElement->innertext;
+				$j++;
+			}
+			 * 
+			 */
+			$curRow++;
+		}
+			
+		$this->json = $tableJson;
 	}
-	
 }
 
 class Parser {
@@ -25,10 +90,15 @@ class Parser {
 	private $mysqli = false;
 	private $debug = false;
 	
+	/**
+	 * Note that adjective must go before substentive, because checking type of the word stops after the first valid check
+	 * and check for substantive is also valid for adjective.
+	 * @var array
+	 */
 	private $tableTypes = array(
+		'adjective', // прилагательное
 		'substantive', // существительное
 		'verb', // глагол
-		'adjective' // прилагательное
 	);
 	
 	public function __construct($debug = false) {
@@ -96,26 +166,79 @@ class Parser {
 		}
 		else return false;
 	}
-	
+
+	/**
+	 * Searches for 'падеж' cell in the table
+	 * @param string $tableHtml
+	 * @return boolean
+	 */
 	public function checkIfDeclensionTableIsSubstantive($tableHtml) {
 		return !(strpos($tableHtml, '<a href="/wiki/%D0%BF%D0%B0%D0%B4%D0%B5%D0%B6" title="падеж">падеж</a>') === false);
 	}
 
+	/**
+	 * Searches for 'Я' cell in the table
+	 * @param string $tableHtml
+	 * @return boolean
+	 */
+	public function checkIfDeclensionTableIsVerb($tableHtml) {
+		return !(strpos($tableHtml, '<a href="/wiki/%D1%8F" title="я">Я</a>') === false);
+	}
 
-	public function getAllTablesHTML($id) {
+	
+	/**
+	 * Searches for three cells 'муж.р','ср.р','жен.р' in the table
+	 * @param string $tableHtml
+	 * @return boolean
+	 */
+	public function checkIfDeclensionTableIsAdjective($tableHtml) {
+		$maleVariant = !(strpos($tableHtml, 'title="мужской род">') === false);
+		$itVariant = !(strpos($tableHtml, 'title="средний род">') === false);
+		$femaleVariant = !(strpos($tableHtml, 'title="женский род"') === false);
+		
+		return ($maleVariant && $itVariant && $femaleVariant);		
+	}
+
+	
+			
+	/**
+	 * Queries HTML from DB for given ID
+	 * @param integer $id
+	 * @return boolean|string
+	 */
+	public function getHTML($id) {
 		$sql = 'SELECT * from russian_words WHERE id = ' . intval($id) .' LIMIT 1';
 		$res = $this->query($sql);
 		
-
-		//$html = str_get_html(gzuncompress($res[0]['wikidictionary_html']));
-		//$tables = $html->find('table');
-		
-		$html = gzuncompress($res[0]['wikidictionary_html']);
-		
+		if (is_array($res) && count($res)) {
+			$html = gzuncompress($res[0]['wikidictionary_html']);
+			return $html;
+		}
+		return false;
+	}
+	
+	/**
+	 * Extracts all tables from given HTML
+	 * @param string $html
+	 * @return array
+	 */
+	public function extractAllTables($html) {	
 		$tables = array();
 		preg_match_all('/<table.*?>(.*?)<\/table>/si', $html, $tables); 
-		
 		return $tables[0];
+	}
+	
+	
+	/**
+	 * Extracts subject of the article from given HTML
+	 * @param string $html
+	 * @return array
+	 */
+	public function extractSubject($html) {	
+		$subject = array();
+		preg_match_all('/<h1.*?>.*?<span dir="auto">(.*?)<\/span>.*?<\/h1>/si', $html, $subject);
+		//echo('<pre>' . print_r($subject[1], 1) . '</pre>');
+		return $subject[1][0];
 	}
 	
 	
@@ -136,9 +259,14 @@ class Parser {
 	</html>
 	<?php
 	}
-	public function run($id) {
+	
+	public function runForSingle($id) {
 		$this->header();
-		$tables = $this->getAllTablesHTML($id);
+		$html = $this->getHTML($id);
+		$subject = $this->extractSubject($html);
+		$tables = $this->extractAllTables($html);
+		
+		echo('<h1>' . $subject. '</h1>');
 		
 		$declensionTable = $this->findDeclensionTable($tables);
 		if ($declensionTable) {
@@ -147,9 +275,11 @@ class Parser {
 			echo('<h1>' . $declensionTable->type. '</h1>');
 			echo($declensionTable->html . '<br><hr>');
 			echo('<pre>' . print_r($declensionTable->json, 1) . '</pre>');
+			echo $html;
 		}
 		else {
 			echo "<h1>Declenion table not found!</h1>";
+			echo($html);
 			foreach ($tables as $i => $tableHTML) {
 				echo "<h1>Table # $i</h1>";
 				echo($tableHTML.'<br><br><br>');
@@ -157,10 +287,44 @@ class Parser {
 		}
 		$this->footer();
 	}
+	
+	public function runForRange($start,$end) {
+		$this->header();
+		
+		for ($i = $start; $i <= $end; $i++) {
+			$html = $this->getHTML($i);
+			$subject = $this->extractSubject($html);
+			$tables = $this->extractAllTables($html);
+		
+			$out = '<br>' . $i .': ' .  $subject;
+		
+			$declensionTable = $this->findDeclensionTable($tables);
+			if ($declensionTable) {
+				$out .= ': ' . $declensionTable->type . $declensionTable->html;
+			}
+			else {
+				$out .= ': <b>unknown</b>';				
+			}
+			echo ($out);
+		}
+		$this->footer();
+	}
 }
 
 $parser = new Parser(true);
 
-$id = isset($_GET['id']) ? intval($_GET['id']) : 70;
-$parser->run($id);
+$id = isset($_GET['id']) ? intval($_GET['id']) : false;
+if ($id) {
+	$parser->runForSingle($id);
+}
+else {
+	$start = isset($_GET['start']) ? intval($_GET['start']) : false;
+	$end = isset($_GET['end']) ? intval($_GET['end']) : false;
+	if ($start && $end) {
+		$parser->runForRange($start, $end);
+	}
+}
+
+
+
 ?>
