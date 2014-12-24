@@ -123,8 +123,8 @@ class WikidictionaryParser {
 	 * @return boolean|string
 	 */
 	public function queryForHTML($id) {
-		$sql = 'SELECT * from russian_words WHERE id = ' . intval($id) .' LIMIT 1';
-		$res = SQLPatterns::fetchAll($sql);
+		$sql = 'SELECT * from russian_words WHERE id = ? LIMIT 1';
+		$res = SQLPatterns::fetchAll($sql, array(intval($id)));
 		
 		if (is_array($res) && count($res)) {
 			$html = gzuncompress($res[0]['wikidictionary_html']);
