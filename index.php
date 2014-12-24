@@ -1,8 +1,12 @@
 <?php
 
+include_once './simple_html_dom/simple_html_dom.php';
 
-
-include './class.ParserRunner.php';
+include_once './class.DB.php';
+include_once './class.SQLPatterns.php';
+include_once './class.DeclensionTable.php';
+include_once './class.WikidictionaryParser.php';
+include_once './class.ParserRunner.php';
 
 $parserRunner = new ParserRunner(true);
 

@@ -1,7 +1,5 @@
 <?php
 
-include './class.WikidictionaryParser.php';
-
 /**
  * Runs the parser for single or many rows
  *

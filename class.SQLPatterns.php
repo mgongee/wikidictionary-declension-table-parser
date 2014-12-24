@@ -2,8 +2,6 @@
 
 /* https://github.com/tomac120/SqlPatterns */
 
-include_once 'class.DB.php';
-
 class SQLPatterns
 {
 	/* THIS FUNCTION IS USED BY ALL OTHER FUNCTIONS IN THE CLASS

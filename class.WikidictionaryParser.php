@@ -1,9 +1,5 @@
 <?php
 
-include './simple_html_dom/simple_html_dom.php';
-include './class.SQLPatterns.php';
-include './class.DeclensionTable.php';
-
 /**
  * Description of class
  *
@@ -12,7 +8,6 @@ include './class.DeclensionTable.php';
 
 class WikidictionaryParser {
 	
-	private $mysqli = false;
 	private $debug = false;
 	
 	/**
@@ -23,7 +18,11 @@ class WikidictionaryParser {
 	private $tableTypes = array(
 		'adjective', // прилагательное
 		'substantive', // существительное
-		'verb', // глагол
+		
+		'verbPerfect', // глагол в прошедшем
+		'verbPresent', // глагол в настоящем
+		
+		'verb', // глагол (must go after 'verbPerfect', 'verbPresent' on the same reason as with 'adjective' )
 	);
 	
 	public function __construct($debug = false) {
@@ -79,6 +78,29 @@ class WikidictionaryParser {
 		return !(strpos($tableHtml, '<a href="/wiki/%D1%8F" title="я">Я</a>') === false);
 	}
 
+	/**
+	 * Searches for 'будущ' cell in the table
+	 * @param string $tableHtml
+	 * @return boolean
+	 */
+	public function checkIfDeclensionTableIsVerbPerfect($tableHTML) {
+		if ($this->checkIfDeclensionTableIsVerb($tableHTML)) {
+			return !(stripos($tableHTML,'<a href="/wiki/%D0%B1%D1%83%D0%B4%D1%83%D1%89%D0%B5%D0%B5_%D0%B2%D1%80%D0%B5%D0%BC%D1%8F" title="будущее время">будущ.</a>') === false);
+		}
+		else return false;
+	}
+
+	/**
+	 * Searches for 'наст' cell in the table
+	 * @param string $tableHtml
+	 * @return boolean
+	 */
+	public function checkIfDeclensionTableIsVerbPresent($tableHTML) {
+		if ($this->checkIfDeclensionTableIsVerb($tableHTML)) {
+			return !(stripos($tableHTML,'<a href="/wiki/%D0%BD%D0%B0%D1%81%D1%82%D0%BE%D1%8F%D1%89%D0%B5%D0%B5_%D0%B2%D1%80%D0%B5%D0%BC%D1%8F" title="настоящее время">наст.</a>') === false);
+		}
+		else return false;
+	}
 	
 	/**
 	 * Searches for three cells 'муж.р','ср.р','жен.р' in the table
