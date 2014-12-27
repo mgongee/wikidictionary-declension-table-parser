@@ -50,6 +50,7 @@ class ParserRunner {
 
 				echo('<h1>' . $declensionTable->type. '</h1>');
 				echo($declensionTable->html . '<br><hr>');
+				echo('<pre>' . print_r($declensionTable->json,1) . '</pre><br><hr>');
 				//echo $html;
 			}
 			else {
