@@ -15,6 +15,7 @@ class DeclensionTable {
 
 	public $type = false;
 	public $html = '';
+	public $tableArray = '';
 	public $json = '';
 	
 	public function __construct($type, $html) {
@@ -25,7 +26,10 @@ class DeclensionTable {
 	public function parse() {
 		$jsonTableHeader = $this->parseTableCells('th');
 		$jsonTableBody = $this->parseTableCells('td');
-		$this->json = array_merge($jsonTableHeader,$jsonTableBody);
+		$this->tableArray = array_merge($jsonTableHeader,$jsonTableBody);
+		
+		$this->json = $this->tableArray;
+		//$this->json = json_encode($this->formatTableArray($this->tableArray));
 	}
 	
 	public function parseTableCells($tag = 'th') {
@@ -57,7 +61,15 @@ class DeclensionTable {
 				if (isset($colElement->colspan)) {
 					$cellSize['columns'] = $colElement->colspan;
 				}
-				
+		
+				// determine if table cell is row/column header
+				$isRowHeader = false;
+				$isColumnHeader = false;
+						
+				if (isset($colElement->bgcolor) && $colElement->bgcolor == '#EEF9FF') {
+					if ($curRow == 0) $isColumnHeader = true;
+					else if ($curCol == 0) $isRowHeader = true;
+				}
 				// skip JSON cells until empty cell is found
 				while (isset($tableJson[$curRow][$curCol])) { 
 					$curCol++; // next cell
@@ -68,7 +80,11 @@ class DeclensionTable {
 					for ($j = 0; $j < $cellSize['columns']; $j++) {
 						if (!isset($tableJson[$curRow + $i])) $tableJson[$curRow + $i] = array(); // create next row if it not exists
 
-						$tableJson[$curRow + $i][$curCol + $j] = $colElement->innertext;
+						$tableJson[$curRow + $i][$curCol + $j] = array(
+							'isRowHeader'		=> $isRowHeader,
+							'isColumnHeader'	=> $isColumnHeader,
+							'value'				=> $colElement->innertext
+						);
 					}
 				}
 				$curCol += $cellSize['columns'];

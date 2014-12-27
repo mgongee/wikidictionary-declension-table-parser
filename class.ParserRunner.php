@@ -32,50 +32,69 @@ class ParserRunner {
 	
 	public function runForSingle($id) {
 		$this->header();
-		$html = $this->parser->queryForHTML($id);
-		$subject = $this->parser->extractSubject($html);
-		$tables = $this->parser->extractAllTables($html);
-		
-		echo('<h1>' . $subject. '</h1>');
-		
-		$declensionTable = $this->parser->findDeclensionTable($tables);
-		if ($declensionTable) {
-			$declensionTable->parse();
-		
-			echo('<h1>' . $declensionTable->type. '</h1>');
-			echo($declensionTable->html . '<br><hr>');
-			echo('<pre>' . print_r($declensionTable->json, 1) . '</pre>');
-			//echo $html;
-		}
-		else {
-			echo "<h1>Declenion table not found!</h1>";
-			echo($html);
-			foreach ($tables as $i => $tableHTML) {
-				echo "<h1>Table # $i</h1>";
-				echo($tableHTML.'<br><br><br>');
+		$this->parser->setId($id);
+		if ($this->parser->queryData()) {
+			$this->parser->extractAllTables();
+			$this->parser->extractWordInfo();
+
+			echo('<h1>' . $this->parser->getSubject() . '</h1>');
+			
+			echo('Base Forms: ' . ($this->parser->baseForms ? implode(' , ' , $this->parser->baseForms) : '<b>not found</b> ') . '<br>');
+			echo('Declension type: ' . $this->parser->declensionType . '<br>');
+			echo('Gender: ' . $this->parser->gender . '<br>');
+			
+			
+			$declensionTable = $this->parser->findDeclensionTable();
+			if ($declensionTable) {
+				$declensionTable->parse();
+
+				echo('<h1>' . $declensionTable->type. '</h1>');
+				echo($declensionTable->html . '<br><hr>');
+				//echo $html;
 			}
+			else {
+				echo "<h1>Declenion table not found!</h1>";
+				echo($this->parser->html);
+				foreach ($this->parser->tables as $i => $tableHTML) {
+					echo "<h1>Table # $i</h1>";
+					echo($tableHTML.'<br><br><br>');
+				}
+			}
+			
 		}
+		
 		$this->footer();
+		
 	}
 	
 	public function runForRange($start,$end) {
 		$this->header();
 		
 		for ($i = $start; $i <= $end; $i++) {
-			$html = $this->parser->queryForHTML($i);
-			$subject = $this->parser->extractSubject($html);
-			$tables = $this->parser->extractAllTables($html);
+			$this->parser->setId($i);
+			if ($this->parser->queryData()) {
+				$this->parser->extractAllTables();
+				$this->parser->extractWordInfo();
+
+				echo '<br>' . $i .': <b>' . $this->parser->getSubject() . '</b><br>';
+
+				echo('Base Forms: ' . ($this->parser->baseForms ? implode(' , ' , $this->parser->baseForms) : '<b>not found</b> ') . '<br>');
+				echo('Declension type: ' . $this->parser->declensionType . '<br>');
+				echo('Gender: ' . $this->parser->gender . '<br>');
 		
-			$out = '<br>' . $i .': ' .  $subject;
+			
 		
-			$declensionTable = $this->parser->findDeclensionTable($tables);
-			if ($declensionTable) {
-				$out .= ': ' . $declensionTable->type . $declensionTable->html;
+				$declensionTable = $this->parser->findDeclensionTable();
+				if ($declensionTable) {
+					echo 'DeclensionTable: ' . $declensionTable->type . $declensionTable->html;
+				}
+				else {
+					echo 'DeclensionTable: <b>unknown</b>';				
+				}
 			}
 			else {
-				$out .= ': <b>unknown</b>';				
+				echo '<br>' . $i .': <b>Not found</b><br>';
 			}
-			echo ($out);
 		}
 		$this->footer();
 	}

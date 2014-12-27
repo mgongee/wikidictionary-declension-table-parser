@@ -10,6 +10,15 @@ class WikidictionaryParser {
 	
 	private $debug = false;
 	
+	public $html = false;
+	public $json = false;
+	
+	/* extracted info */
+	public $tables = false;
+	public $declensionType = false;
+	public $baseForms = false;
+	public $gender = false;
+	
 	/**
 	 * Note that adjective must go before substentive, because checking type of the word stops after the first valid check
 	 * and check for substantive is also valid for adjective.
@@ -29,13 +38,16 @@ class WikidictionaryParser {
 		$this->debug = $debug;
 	}
 	
+	public function setId($id) {
+		$this->id = $id;
+	}
+	
 	/**
 	 * Finds declension table among other 'table' tags content
-	 * @param array $tables
 	 * @return \declensionTable|boolean
 	 */
-	public function findDeclensionTable($tables) {
-		foreach ($tables as $tableHtml) {
+	public function findDeclensionTable() {
+		foreach ($this->tables as $tableHtml) {
 			foreach ($this->tableTypes as $tableType) {
 				if ($this->checkIfDeclensionTable($tableType, $tableHtml)) {
 					$table = new DeclensionTable($tableType ,$tableHtml);
@@ -118,43 +130,84 @@ class WikidictionaryParser {
 	
 			
 	/**
-	 * Queries HTML from DB for given ID
-	 * @param integer $id
-	 * @return boolean|string
+	 * Queries HTML & JSON from DB
 	 */
-	public function queryForHTML($id) {
+	public function queryData() {
 		$sql = 'SELECT * from russian_words WHERE id = ? LIMIT 1';
-		$res = SQLPatterns::fetchAll($sql, array(intval($id)));
+		$res = SQLPatterns::fetchAll($sql, array(intval($this->id)));
 		
 		if (is_array($res) && count($res)) {
-			$html = gzuncompress($res[0]['wikidictionary_html']);
-			return $html;
+			$this->html = gzuncompress($res[0]['wikidictionary_html']);
+			$this->json = json_decode(gzuncompress($res[0]['wikidictionary_json']), true);
+			//echo('<pre>' . print_r($this->json, 1) . '</pre>');die();
+			return true;
 		}
-		return false;
+		else {
+			$this->html = false;
+			return false;
+		}
 	}
 	
 	/**
 	 * Extracts all tables from given HTML
-	 * @param string $html
-	 * @return array
 	 */
-	public function extractAllTables($html) {	
+	public function extractAllTables() {	
 		$tables = array();
-		preg_match_all('/<table.*?>(.*?)<\/table>/si', $html, $tables); 
-		return $tables[0];
+		preg_match_all('/<table.*?>(.*?)<\/table>/si', $this->html, $tables); 
+		$this->tables = $tables[0];
 	}
 	
-	
 	/**
-	 * Extracts subject of the article from given HTML
-	 * @param string $html
-	 * @return array
+	 * Extracts gender, base forms and declension type from given JSON
 	 */
-	public function extractSubject($html) {	
+	public function extractWordInfo() {
+		$text = $this->json['parse']['wikitext']['*'];
+		$start = strpos($text, 'Морфологические и синтаксические свойства');	
+		if ($start !== false) {
+			$text = explode('{{', substr($text, $start));
+			$text = explode('}}', $text[1]);
+			$text = explode('|', $text[0]);
+			
+			//echo('[[<pre>' . print_r($text, 1) . '</pre>]]');
+			$this->baseForms = array();
+
+			foreach ($text as $str) {
+				$res = preg_match_all('/основа(.?)=(.*)/si', $str, $matches);
+				if ($res) {
+					$this->baseForms[] = $matches[2][0];
+				}
+			}
+			
+			$text = explode(' ', $text[0]);
+			
+			$this->declensionType = $text[count($text) - 1];
+			
+			if ($text[0] == 'сущ') {
+				$this->gender = $text[2];
+			}
+			else {
+				$this->gender = false;
+			}
+			
+		}
+		else {
+			$this->baseForms = false;
+			$this->declensionType = false;
+			$this->gender = false;
+		}
+	}
+			
+	/**
+	 * Returns subject of current article 
+	 */
+	public function getSubject() {	
+		/*
 		$subject = array();
-		preg_match_all('/<h1.*?>.*?<span dir="auto">(.*?)<\/span>.*?<\/h1>/si', $html, $subject);
-		//echo('<pre>' . print_r($subject[1], 1) . '</pre>');
-		return $subject[1][0];
+		preg_match_all('/<h1.*?>.*?<span dir="auto">(.*?)<\/span>.*?<\/h1>/si', $this->html, $subject);
+		$this->subject = $subject[1][0];
+		*/
+		return $this->json['parse']['title'];
+		
 	}
 	
 	
