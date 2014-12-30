@@ -14,6 +14,9 @@ $id = isset($_GET['id']) ? intval($_GET['id']) : false;
 if ($id) {
 	$parserRunner->runForSingle($id);
 }
+elseif (isset($_GET['absent'])) {
+	$parserRunner->runForAbsent();
+}
 else {
 	$start = isset($_GET['start']) ? intval($_GET['start']) : false;
 	$end = isset($_GET['end']) ? intval($_GET['end']) : false;

@@ -27,9 +27,9 @@ class DeclensionTable {
 		$jsonTableHeader = $this->parseTableCells('th');
 		$jsonTableBody = $this->parseTableCells('td');
 		$this->tableArray = array_merge($jsonTableHeader,$jsonTableBody);
-		
-		$this->json = $this->tableArray;
-		//$this->json = json_encode($this->formatTableArray($this->tableArray));
+		//echo('<pre>' . print_r($this->tableArray , 1) . '</pre>');
+		//echo('<pre>' . print_r($this->formatTableArray($this->tableArray) , 1) . '</pre>');
+		$this->json = json_encode($this->formatTableArray($this->tableArray));
 	}
 	
 	public function parseTableCells($tag = 'th') {
@@ -65,10 +65,11 @@ class DeclensionTable {
 				// determine if table cell is row/column header
 				$isRowHeader = false;
 				$isColumnHeader = false;
-						
-				if (isset($colElement->bgcolor) && $colElement->bgcolor == '#EEF9FF') {
-					if ($curRow == 0) $isColumnHeader = true;
-					else if ($curCol == 0) $isRowHeader = true;
+					
+				if ($tag == 'th') $isColumnHeader = true;
+				elseif (	(isset($colElement->bgcolor) && $colElement->bgcolor == '#EEF9FF') || 
+						(isset($rowElement->bgcolor) && $rowElement->bgcolor == '#EEF9FF')	) { 					
+					$isRowHeader = true;
 				}
 				// skip JSON cells until empty cell is found
 				while (isset($tableJson[$curRow][$curCol])) { 
@@ -93,8 +94,10 @@ class DeclensionTable {
 			$curRow++;
 		}
 		
+		foreach ($tableJson as $key => $row) {
+			ksort($tableJson[$key]);
+		}
 		$this->removeEmptyRows($tableJson);
-		$this->compactSameCells($tableJson);
 		return $tableJson;
 	}
 	
@@ -117,6 +120,61 @@ class DeclensionTable {
 		}
 	}
 	
+	private function formatTableArray($tableArray) {
+		$columnHeaders = array();
+		$rowHeaders = array();
+		$rows = array();
+		
+		foreach ($tableArray as $key => $row) {
+			$rows[$key] = array();
+			$rowHeader = '';
+			
+			foreach ($row as $i => $cell) {
+				
+				if ($cell['isColumnHeader']) {
+					if (!isset($columnHeaders[$i])) $columnHeaders[$i] = '';
+					
+					if ($columnHeaders[$i] != $cell['value']) {
+						$columnHeaders[$i] .= $cell['value'];
+					}
+				}
+				elseif ($cell['isRowHeader']) {
+					$rowHeader .= $cell['value'] . ' ';
+				}
+				else {
+					$rows[$key][] = $cell['value'];
+				}
+			}
+			
+			$rowHeaders[] = $rowHeader;
+			$this->compactSameCells($rows);
+		}
+		
+		$columnHeaders = $this->removeFirstColumn($columnHeaders);
+		
+		return array(
+			'columnHeaders' => $columnHeaders,
+			'rowHeaders' => $rowHeaders,
+			'rows' => $rows
+		);
+	}
+	
+	private function removeFirstColumn($array) {
+		$deleteValue = true;
+		$deletedValue = false;
+		foreach ($array as $key => $value) {
+			if ($deleteValue) {
+				$deletedValue = $array[$key];
+				unset($array[$key]);
+				
+				$deleteValue = false;
+			}
+			elseif ($array[$key] == $deletedValue) {
+				unset($array[$key]);
+			}
+		}
+		return $array;
+	}
 }
 
 ?>

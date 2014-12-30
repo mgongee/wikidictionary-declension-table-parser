@@ -10,6 +10,9 @@ class WikidictionaryParser {
 	
 	private $debug = false;
 	
+	public $rawHtml = false;
+	public $rawJson = false;
+	
 	public $html = false;
 	public $json = false;
 	
@@ -137,8 +140,11 @@ class WikidictionaryParser {
 		$res = SQLPatterns::fetchAll($sql, array(intval($this->id)));
 		
 		if (is_array($res) && count($res)) {
-			$this->html = gzuncompress($res[0]['wikidictionary_html']);
-			$this->json = json_decode(gzuncompress($res[0]['wikidictionary_json']), true);
+			$this->rawHtml = $res[0]['wikidictionary_html'];
+			$this->html = gzuncompress($this->rawHtml);
+			
+			$this->rawJson = $res[0]['wikidictionary_json'];
+			$this->json = json_decode(gzuncompress($this->rawJson), true);
 			//echo('<pre>' . print_r($this->json, 1) . '</pre>');die();
 			return true;
 		}
